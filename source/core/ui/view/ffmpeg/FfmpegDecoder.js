@@ -1,6 +1,5 @@
-import OSH from '../ffmpeg/ffmpeg';
-
-import {isDefined} from "../../../utils/Utils";
+import OSH from './ffmpeg.js';
+import { isDefined } from "../../../utils/Utils.js";
 
 class FfmpegDecoder {
     constructor(props) {
