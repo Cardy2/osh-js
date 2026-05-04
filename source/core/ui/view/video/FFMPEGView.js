@@ -10,6 +10,7 @@
  ******************************* END LICENSE BLOCK ***************************/
 
 import {assertDefined, isDefined, isWebWorker, randomUUID} from "../../../utils/Utils.js";
+import DecodeWorker from './workers/ffmpeg.decode.video.worker.js?worker';
 import '../../../resources/css/ffmpegview.css';
 import YUVCanvas from "./YUVCanvas";
 import CanvasView from "./CanvasView";
@@ -106,7 +107,10 @@ class FFMPEGView extends CanvasView {
      */
     reset() {
         this.skipFrame = true;
-
+        // if(isDefined(this.decodeWorker)) {
+        //     this.decodeWorker.terminate();
+        //     this.decodeWorker = null;
+        // }
         if(this.decodeWorker) {
             this.decodeWorker.postMessage({
                 message: 'release'
@@ -140,35 +144,70 @@ class FFMPEGView extends CanvasView {
      * @private
      */
     initFFMPEG_DECODER_WORKER(codec) {
-        this.decodeWorker = new Worker(new URL('./workers/ffmpeg.decode.video.worker.js', import.meta.url), { type: 'module' });
+        console.log('[FFMPEGView] initFFMPEG_DECODER_WORKER start', { codec });
+
+        console.log('[FFMPEGView] creating worker via import', { DecodeWorkerType: typeof DecodeWorker });
+
+      //  let decodeWorkerUrl = new URL('./workers/ffmpeg.decode.video.worker.js', import.meta.url);
+       // this.decodeWorker = new Worker(decodeWorkerUrl, {type: 'module'});
+
+        this.decodeWorker = new DecodeWorker();
         this.decodeWorker.id = randomUUID();
+
+        this.decodeWorker.onerror = (err) => {
+            console.error('[FFMPEGView] worker error', {
+                message: err.message,
+                filename: err.filename,
+                lineno: err.lineno,
+                colno: err.colno,
+                error: err.error
+            });
+        };
+        this.decodeWorker.onmessageerror = (err) => {
+            console.error('[FFMPEGView] worker message error', err);
+        };
 
         this.decodeWorker.postMessage({
             'message': 'init',
             'codec' : codec.toLowerCase()
         });
 
-        this.decodeWorker.onerror = (e) => {
-            console.error('Decode worker error:', e);
-        };
-        this.decodeWorker.onmessageerror = (e) => {
-            console.error('Decode worker message error:', e);
-        };
+        // const offscreenCanvas = this.canvas.transferControlToOffscreen();
+        // let canvas = document.createElement('canvas');
+        // canvas.setAttribute('width', this.width);
+        // canvas.setAttribute('height', this.height);
+        // this.domNode.appendChild(canvas);
+
+        // const offscreenCanvas = canvas.transferControlToOffscreen();
+        // drawWorker.postMessage({
+        //     canvas: offscreenCanvas,
+        //     width: this.width,
+        //     height: this.height,
+        //     framerate: this.framerate,
+        //     dataSourceId: this.dataSourceId
+        // }, [offscreenCanvas]);
 
         const that = this;
         this.decodeWorker.onmessage = function (e) {
 
             if (e.data && e.data.message === 'ready') {
+                console.log('[ffmpeg worker] ready', e.data);
                 return;
             }
             if (e.data && e.data.message === 'pong') {
+                console.log('[ffmpeg worker] pong', e.data);
                 return;
             }
             if (e.data && e.data.message === 'error') {
+                console.error('[ffmpeg worker] error', e.data);
                 return;
             }
             let decodedFrame = e.data;
-            
+            console.log('[ffmpeg worker] decoded frame', decodedFrame.frame_width, decodedFrame.frame_height, {
+                timestamp: decodedFrame.timestamp,
+                pktSize: decodedFrame.pktSize,
+            });
+
             that.drawFrame(decodedFrame);
             this.onAfterDecoded(decodedFrame, FrameType.ARRAY);
             this.updateStatistics(decodedFrame.pktSize);

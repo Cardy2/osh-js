@@ -65,9 +65,5 @@ self.onmessage = async function (e) {
 }
 
 self.onerror = (e) => {
-    console.error('Decode worker error:', e);
-}
-
-self.onmessageerror = (e) => {
-    console.error('Decode worker message error:', e);
+    console.log('closing worker');
 }
