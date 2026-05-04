@@ -72,9 +72,21 @@ class FFMPEGView extends CanvasView {
 
     }
 
-    createCanvas(width, height, style) {
-        return new YUVCanvas({width: width, height: height, contextOptions: {preserveDrawingBuffer: true}});
-    }
+//    createCanvas(width, height, style) {
+//        return new YUVCanvas({width: width, height: height, contextOptions: {preserveDrawingBuffer: true}});
+//    }
+        createCanvas(width, height, style) {
+            // Create the <canvas> in the same document we'll attach it to (e.g. a popout window).
+            // Otherwise the WebGL context is bound to the main window's document and renders nothing
+            // when the element is later moved into the popout document via appendChild.
+            const doc = this.currentDoc || document;
+            return new YUVCanvas({
+                canvas: doc.createElement("canvas"),
+                width: width,
+                height: height,
+                contextOptions: {preserveDrawingBuffer: true}
+            });
+        }
 
     async setData(dataSourceId, data) {
         if(data.type === 'videoData') {
@@ -106,10 +118,7 @@ class FFMPEGView extends CanvasView {
      */
     reset() {
         this.skipFrame = true;
-        // if(isDefined(this.decodeWorker)) {
-        //     this.decodeWorker.terminate();
-        //     this.decodeWorker = null;
-        // }
+
         if(this.decodeWorker) {
             this.decodeWorker.postMessage({
                 message: 'release'
